@@ -71,3 +71,29 @@ END;
 $$ language 'plpgsql';
 
 CREATE TRIGGER update_contacts_updated_at BEFORE UPDATE ON contacts FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+
+-- Automation Rules
+CREATE TABLE automation_rules (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  keyword TEXT NOT NULL UNIQUE,
+  responses JSONB NOT NULL DEFAULT '[]',
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Automation Logs (for analytics)
+CREATE TABLE automation_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  keyword TEXT NOT NULL,
+  contact_name TEXT,
+  triggered_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Message Templates (optional but useful)
+CREATE TABLE message_templates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  content TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
