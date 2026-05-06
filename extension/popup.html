@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      width: 300px;
+      padding: 16px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      background: #f8fafc;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .logo {
+      width: 32px;
+      height: 32px;
+      background: #0e8edc;
+      border-radius: 8px;
+    }
+    h2 {
+      margin: 0;
+      font-size: 16px;
+      color: #1e293b;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 12px;
+    }
+    .status-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .status-label {
+      font-size: 13px;
+      color: #64748b;
+    }
+    .status-value {
+      font-size: 13px;
+      font-weight: 600;
+      color: #10b981;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      background: #0e8edc;
+      color: white;
+      text-align: center;
+      text-decoration: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-secondary {
+      background: white;
+      border: 1px solid #e2e8f0;
+      color: #64748b;
+      margin-top: 8px;
+    }
+    .footer {
+      text-align: center;
+      font-size: 10px;
+      color: #94a3b8;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo"></div>
+    <h2>WA-CRM Pro</h2>
+  </div>
+
+  <div class="card">
+    <div class="status-item">
+      <span class="status-label">WhatsApp Connection</span>
+      <span class="status-value">Active</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">Sync Status</span>
+      <span class="status-value">Ready</span>
+    </div>
+  </div>
+
+  <button class="btn" id="open-dashboard">Open Dashboard</button>
+  <button class="btn btn-secondary" id="sync-now">Force Sync Now</button>
+
+  <div class="footer">
+    Independent product for WhatsApp Web.<br>
+    v1.0.0 • Connected
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

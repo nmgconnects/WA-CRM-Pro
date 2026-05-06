@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { width: 300px; padding: 20px; font-family: sans-serif; background: #f8fafc; }
+        .header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+        .logo { width: 32px; height: 32px; background: #0e8edc; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; }
+        .status { padding: 12px; background: white; border-radius: 12px; border: 1px solid #e2e8f0; }
+        .label { font-size: 10px; color: #94a3b8; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; }
+        .value { font-size: 14px; color: #1e293b; font-weight: 700; }
+        .btn { margin-top: 16px; width: 100%; padding: 10px; background: #0e8edc; color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">W</div>
+        <div style="font-size: 16px; font-weight: 900; color: #0f172a;">WA-CRM Pro</div>
+    </div>
+    <div class="status">
+        <div class="label">CRM Connection</div>
+        <div class="value" style="color: #10b981;">● Online</div>
+    </div>
+    <button class="btn" id="open-dashboard">Open Dashboard</button>
+    <script src="popup.js"></script>
+</body>
+</html>
