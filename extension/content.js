@@ -268,20 +268,36 @@ function renderTabContent(tab) {
             });
             break;
         case 'tools':
-            container.innerHTML = `
-                <div class="intel-card">
-                    <span style="font-size: 9px; font-weight: 900; color: #94a3b8; text-transform: uppercase; display: block; margin-bottom: 16px;">Chat with Non-contact</span>
-                    <p style="font-size: 10px; color: #64748b; margin-bottom: 12px;">Start a chat without saving the number.</p>
-                    <input type="text" id="direct-chat-phone" class="tool-input" placeholder="+1234567890" />
-                    <button id="btn-direct-chat" class="action-btn-sm">Open Direct Chat</button>
-                </div>
-            `;
-            document.getElementById('btn-direct-chat')?.addEventListener('click', () => {
-                const phone = document.getElementById('direct-chat-phone').value;
-                if (phone) {
-                    window.open(`https://web.whatsapp.com/send?phone=${phone.replace(/\D/g, '')}`, '_blank');
-                    showNotification('Redirecting...');
-                }
+            chrome.storage.local.get('GEMINI_API_KEY', (data) => {
+                container.innerHTML = `
+                    <div class="intel-card">
+                        <span style="font-size: 9px; font-weight: 900; color: #94a3b8; text-transform: uppercase; display: block; margin-bottom: 16px;">AI Settings</span>
+                        <p style="font-size: 10px; color: #64748b; margin-bottom: 12px;">Enter your Gemini API Key to enable Intelligence features.</p>
+                        <input type="password" id="gemini-api-key-input" class="tool-input" placeholder="AIzaSy..." value="${data.GEMINI_API_KEY || ''}" />
+                        <button id="btn-save-settings" class="action-btn-sm" style="background: #10b981;">Save API Key</button>
+                    </div>
+                    <div class="intel-card">
+                        <span style="font-size: 9px; font-weight: 900; color: #94a3b8; text-transform: uppercase; display: block; margin-bottom: 16px;">Chat with Non-contact</span>
+                        <p style="font-size: 10px; color: #64748b; margin-bottom: 12px;">Start a chat without saving the number.</p>
+                        <input type="text" id="direct-chat-phone" class="tool-input" placeholder="+1234567890" />
+                        <button id="btn-direct-chat" class="action-btn-sm">Open Direct Chat</button>
+                    </div>
+                `;
+
+                document.getElementById('btn-save-settings')?.addEventListener('click', () => {
+                    const key = document.getElementById('gemini-api-key-input').value;
+                    chrome.storage.local.set({ 'GEMINI_API_KEY': key }, () => {
+                        showNotification('Settings Saved!');
+                    });
+                });
+
+                document.getElementById('btn-direct-chat')?.addEventListener('click', () => {
+                    const phone = document.getElementById('direct-chat-phone').value;
+                    if (phone) {
+                        window.open(`https://web.whatsapp.com/send?phone=${phone.replace(/\D/g, '')}`, '_blank');
+                        showNotification('Redirecting...');
+                    }
+                });
             });
             break;
     }
@@ -291,6 +307,12 @@ async function runAIIntelligence() {
     const container = document.getElementById('ai-intelligence-container');
     if (!container) return;
 
+    const messages = scrapeChat();
+    if (messages.length === 0) {
+        showNotification('No messages detected to analyze.');
+        return;
+    }
+
     container.innerHTML = `
         <div style="display: flex; flex-direction: column; align-items: center; padding: 40px 20px;">
             <div class="ai-pulse" style="width: 40px; height: 40px; margin-bottom: 20px;"></div>
@@ -298,27 +320,42 @@ async function runAIIntelligence() {
         </div>
     `;
 
-    // Simulated AI response for environment without direct fetch or bundler
-    setTimeout(() => {
-        container.innerHTML = `
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
-                <div class="intel-card" style="margin-bottom: 0;">
-                    <span style="font-size: 9px; font-weight: 900; color: #94a3b8; text-transform: uppercase;">Lead Score</span>
-                    <p class="score-badge" style="margin: 8px 0 0 0;">85</p>
-                </div>
-                <div class="intel-card" style="margin-bottom: 0;">
-                    <span style="font-size: 9px; font-weight: 900; color: #94a3b8; text-transform: uppercase;">Sentiment</span>
-                    <p style="font-size: 16px; font-weight: 900; color: #10b981; margin: 8px 0 0 0;">Positive</p>
-                </div>
-            </div>
-            <div class="intel-card">
-                <span style="font-size: 9px; font-weight: 900; color: #94a3b8; text-transform: uppercase; display: block; margin-bottom: 12px;">AI Strategy</span>
-                <p style="font-size: 12px; color: #475569; line-height: 1.7; font-style: italic; margin: 0;">
-                    Prospect shows high interest. Focus on closing the deal with a direct proposal.
-                </p>
-            </div>
-        `;
-    }, 2000);
+    chrome.runtime.sendMessage({ type: 'RUN_AI_ANALYSIS', payload: { messages } }, (response) => {
+        if (response && response.success && response.data) {
+            try {
+                const text = response.data.candidates[0].content.parts[0].text;
+                // Basic cleanup of markdown if model returns it
+                const cleaned = text.replace(/```json|```/g, '').trim();
+                const ai = JSON.parse(cleaned);
+
+                container.innerHTML = `
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+                        <div class="intel-card" style="margin-bottom: 0;">
+                            <span style="font-size: 9px; font-weight: 900; color: #94a3b8; text-transform: uppercase;">Lead Score</span>
+                            <p class="score-badge" style="margin: 8px 0 0 0;">${ai.leadScore || ai.lead_score || ai.leadsCore || 'N/A'}</p>
+                        </div>
+                        <div class="intel-card" style="margin-bottom: 0;">
+                            <span style="font-size: 9px; font-weight: 900; color: #94a3b8; text-transform: uppercase;">Sentiment</span>
+                            <p style="font-size: 16px; font-weight: 900; color: #10b981; margin: 8px 0 0 0;">${ai.sentiment || 'Neutral'}</p>
+                        </div>
+                    </div>
+                    <div class="intel-card">
+                        <span style="font-size: 9px; font-weight: 900; color: #94a3b8; text-transform: uppercase; display: block; margin-bottom: 12px;">AI Strategy</span>
+                        <p style="font-size: 12px; color: #475569; line-height: 1.7; font-style: italic; margin: 0;">
+                            "${ai.strategy || 'Continue building rapport with the prospect.'}"
+                        </p>
+                    </div>
+                `;
+            } catch (e) {
+                console.error('AI Parse Error:', e);
+                showNotification('AI Analysis format error.');
+                renderTabContent('intel');
+            }
+        } else {
+            showNotification('AI Analysis Failed. Check API Key.');
+            renderTabContent('intel');
+        }
+    });
 }
 
 function scrapeChat() {
