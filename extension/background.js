@@ -41,20 +41,31 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     chrome.storage.local.get('GEMINI_API_KEY', async (data) => {
       const apiKey = data.GEMINI_API_KEY || ''; 
       
+      if (!apiKey) {
+        sendResponse({ success: false, error: 'API_KEY_MISSING' });
+        return;
+      }
+
       try {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contents: [{
-              parts: [{ text: `Analyze this WhatsApp conversation and provide a Lead Score (0-100), Sentiment, and a 1-sentence Strategy. Format as JSON with keys leadsCore, sentiment, strategy. Conversation: ${JSON.stringify(message.payload.messages)}` }]
+              parts: [{ text: `Analyze this WhatsApp conversation and provide a Lead Score (0-100), Sentiment, and a 1-sentence Strategy. Format as JSON with keys leadScore, sentiment, strategy. Conversation: ${JSON.stringify(message.payload.messages)}` }]
             }]
           })
         });
         
         const result = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(result.error?.message || `HTTP ${response.status}`);
+        }
+
         sendResponse({ success: true, data: result });
       } catch (error) {
+        console.error('WA-CRM AI Fetch Error:', error);
         sendResponse({ success: false, error: error.message });
       }
     });

@@ -323,7 +323,12 @@ async function runAIIntelligence() {
     chrome.runtime.sendMessage({ type: 'RUN_AI_ANALYSIS', payload: { messages } }, (response) => {
         if (response && response.success && response.data) {
             try {
-                const text = response.data.candidates[0].content.parts[0].text;
+                const candidates = response.data.candidates;
+                if (!candidates || candidates.length === 0) {
+                    throw new Error('No AI candidates returned');
+                }
+
+                const text = candidates[0].content.parts[0].text;
                 // Basic cleanup of markdown if model returns it
                 const cleaned = text.replace(/```json|```/g, '').trim();
                 const ai = JSON.parse(cleaned);
@@ -347,12 +352,15 @@ async function runAIIntelligence() {
                     </div>
                 `;
             } catch (e) {
-                console.error('AI Parse Error:', e);
-                showNotification('AI Analysis format error.');
+                console.error('AI Parse Error:', e, response.data);
+                showNotification('AI format error. Please try again.');
                 renderTabContent('intel');
             }
         } else {
-            showNotification('AI Analysis Failed. Check API Key.');
+            const errorMsg = response?.error === 'API_KEY_MISSING' 
+                ? 'Missing Gemini API Key. Go to TOOLS tab.' 
+                : (response?.error || 'Intelligence Request Failed');
+            showNotification(errorMsg);
             renderTabContent('intel');
         }
     });
