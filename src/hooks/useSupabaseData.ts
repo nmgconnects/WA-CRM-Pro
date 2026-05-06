@@ -138,5 +138,29 @@ export function useAutomationRules() {
     fetchRules();
   }, []);
 
-  return { rules, loading };
+  const deleteRule = async (id: string) => {
+    try {
+      const { error } = await supabase.from('automation_rules').delete().eq('id', id);
+      if (error) throw error;
+      setRules(prev => prev.filter(r => r.id !== id));
+      return true;
+    } catch (err) {
+      console.error('Error deleting rule:', err);
+      return false;
+    }
+  };
+
+  const toggleRule = async (id: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase.from('automation_rules').update({ is_active: !currentStatus }).eq('id', id);
+      if (error) throw error;
+      setRules(prev => prev.map(r => r.id === id ? { ...r, is_active: !currentStatus } : r));
+      return true;
+    } catch (err) {
+      console.error('Error toggling rule:', err);
+      return false;
+    }
+  };
+
+  return { rules, loading, deleteRule, toggleRule };
 }

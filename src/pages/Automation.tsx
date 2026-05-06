@@ -5,7 +5,35 @@ import { useAutomationRules } from '../hooks/useSupabaseData';
 
 export const Automation: React.FC = () => {
   const { addActivity } = useActivity();
-  const { rules, loading } = useAutomationRules();
+  const { rules, loading, deleteRule, toggleRule } = useAutomationRules();
+
+  const handleToggle = async (rule: any) => {
+    const success = await toggleRule(rule.id, rule.is_active);
+    if (success) {
+      addActivity({
+        id: Math.random().toString(),
+        type: 'status',
+        contact: `Rule: ${rule.keyword}`,
+        message: `Automation rule ${rule.is_active ? 'paused' : 'activated'}`,
+        timestamp: 'Just now'
+      });
+    }
+  };
+
+  const handleDelete = async (rule: any) => {
+    if (window.confirm(`Are you sure you want to delete the rule for "${rule.keyword}"?`)) {
+      const success = await deleteRule(rule.id);
+      if (success) {
+        addActivity({
+          id: Math.random().toString(),
+          type: 'status',
+          contact: `Rule: ${rule.keyword}`,
+          message: `Automation rule deleted`,
+          timestamp: 'Just now'
+        });
+      }
+    }
+  };
 
   return (
     <div className="p-8 max-w-7xl mx-auto w-full pb-20">
@@ -14,7 +42,12 @@ export const Automation: React.FC = () => {
            <h2 className="text-xl font-black text-slate-800 uppercase tracking-widest italic">Core Automations</h2>
            <p className="text-sm text-slate-400 font-medium">Rules-based triggers to keep your workspace running 24/7.</p>
         </div>
-        <button className="px-6 py-2.5 bg-brand-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-brand-500/20 active:scale-95 transition-all">Create New Logic</button>
+        <button 
+          onClick={() => alert('Please use the WA-CRM Control sidebar in WhatsApp Web to create new rules.')}
+          className="px-6 py-2.5 bg-brand-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-brand-500/20 active:scale-95 transition-all"
+        >
+          Create New Logic
+        </button>
       </div>
 
       <div className="space-y-6">
@@ -42,8 +75,18 @@ export const Automation: React.FC = () => {
                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Active Status</p>
                 </div>
                 <div className="flex gap-2">
-                   <button className="p-3 bg-slate-50 text-slate-300 rounded-xl hover:text-brand-600 transition-all border border-slate-100">{rule.is_active ? <Pause className="w-4 h-4 fill-slate-300" /> : <Play className="w-4 h-4 fill-slate-300" />}</button>
-                   <button className="p-3 bg-red-50 text-red-200 rounded-xl hover:text-red-500 transition-all border border-red-100"><Trash2 className="w-4 h-4" /></button>
+                   <button 
+                    onClick={() => handleToggle(rule)}
+                    className="p-3 bg-slate-50 text-slate-300 rounded-xl hover:text-brand-600 transition-all border border-slate-100"
+                   >
+                     {rule.is_active ? <Pause className="w-4 h-4 fill-slate-300" /> : <Play className="w-4 h-4 fill-slate-300" />}
+                   </button>
+                   <button 
+                    onClick={() => handleDelete(rule)}
+                    className="p-3 bg-red-50 text-red-200 rounded-xl hover:text-red-500 transition-all border border-red-100"
+                   >
+                    <Trash2 className="w-4 h-4" />
+                   </button>
                 </div>
              </div>
           </div>
