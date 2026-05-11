@@ -80,11 +80,13 @@ function createIntelSidebar() {
        <button id="close-intel-sidebar" style="background: none; border: none; font-size: 24px; color: #cbd5e1; cursor: pointer; padding: 4px;">×</button>
     </div>
     
-    <div style="display: flex; border-bottom: 1px solid #f1f5f9; background: #fff;">
-       <button class="nav-tab active" data-tab="intel">🧠 Intel</button>
-       <button class="nav-tab" data-tab="sales">📈 Sales</button>
-       <button class="nav-tab" data-tab="auto">🤖 Auto</button>
-       <button class="nav-tab" data-tab="tools">🛠 Tools</button>
+    <div style="display: flex; border-bottom: 1px solid #f1f5f9; background: #fff; overflow-x: auto; scrollbar-width: none;">
+       <button class="nav-tab active" data-tab="intel" style="min-width: 80px;">🧠 Intel</button>
+       <button class="nav-tab" data-tab="sales" style="min-width: 80px;">📈 Sales</button>
+       <button class="nav-tab" data-tab="auto" style="min-width: 80px;">🤖 Auto</button>
+       <button class="nav-tab" data-tab="templates" style="min-width: 100px;">📋 Templates</button>
+       <button class="nav-tab" data-tab="broadcast" style="min-width: 105px;">📻 Broadcast</button>
+       <button class="nav-tab" data-tab="tools" style="min-width: 80px;">🛠 Tools</button>
     </div>
 
     <div class="intel-body" id="sidebar-tab-content"></div>
@@ -113,6 +115,8 @@ function createIntelSidebar() {
         
         if (nextTab === 'auto') {
             loadAutoReplyRules().then(() => renderTabContent('auto'));
+        } else if (nextTab === 'templates') {
+            loadTemplates().then(() => renderTabContent('templates'));
         } else {
             renderTabContent(nextTab);
         }
@@ -328,6 +332,74 @@ function renderTabContent(tab) {
                 });
             });
             break;
+        case 'templates':
+            const templateHtml = cloudTemplates.map((t, i) => `
+                <div class="intel-card template-card" data-idx="${i}" style="cursor: pointer; border-left: 3px solid #6366f1;">
+                    <h4 style="font-size: 11px; font-weight: 900; color: #1e293b; margin: 0 0 8px; text-transform: uppercase;">${t.title}</h4>
+                    <p style="font-size: 10px; color: #64748b; margin: 0; font-style: italic;">"${t.body}"</p>
+                </div>
+            `).join('');
+
+            container.innerHTML = `
+                <div class="intel-card">
+                    <span style="font-size: 9px; font-weight: 900; color: #94a3b8; text-transform: uppercase; display: block; margin-bottom: 16px;">Message Blueprints</span>
+                    <p style="font-size: 10px; color: #64748b; margin-bottom: 20px;">Click a template to populate the chat input. Variables like {{name}} will be replaced.</p>
+                    <div id="templates-list">
+                        ${templateHtml}
+                    </div>
+                </div>
+            `;
+
+            document.querySelectorAll('.template-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const idx = card.getAttribute('data-idx');
+                    const t = cloudTemplates[idx];
+                    const processed = t.body.replace('{{name}}', contactName);
+                    typeMessage(processed);
+                    showNotification('Template Applied!');
+                });
+            });
+            break;
+        case 'broadcast':
+            container.innerHTML = `
+                <div class="intel-card">
+                    <span style="font-size: 9px; font-weight: 900; color: #94a3b8; text-transform: uppercase; display: block; margin-bottom: 16px;">Bulk Outreach</span>
+                    <p style="font-size: 10px; color: #64748b; margin-bottom: 16px;">Blast a message to multiple contacts. Use comma-separated numbers.</p>
+                    
+                    <textarea id="broadcast-contacts" class="tool-input" placeholder="+1234567890, +0987654321..." style="height: 80px;"></textarea>
+                    <textarea id="broadcast-message" class="tool-input" placeholder="Your message here..." style="height: 100px; margin-top: 12px;"></textarea>
+                    
+                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 12px;">
+                        <span style="font-size: 9px; color: #64748b;">Interval:</span>
+                        <input type="number" id="broadcast-delay" class="tool-input" value="5" style="width: 60px; margin-bottom: 0;" />
+                        <span style="font-size: 9px; color: #64748b;">sec</span>
+                    </div>
+
+                    <button id="btn-run-broadcast" class="action-btn-sm" style="background: #ef4444; margin-top: 20px;">🚀 Launch Broadcast</button>
+                </div>
+            `;
+
+            document.getElementById('btn-run-broadcast')?.addEventListener('click', () => {
+                const contactsStr = document.getElementById('broadcast-contacts').value;
+                const message = document.getElementById('broadcast-message').value;
+                const delay = parseInt(document.getElementById('broadcast-delay').value) || 5;
+
+                if (!contactsStr || !message) return showNotification('Incomplete fields');
+
+                const contacts = contactsStr.split(',').map(c => c.trim()).filter(c => c.length > 0);
+                showNotification(`Starting broadcast to ${contacts.length} contacts...`);
+                
+                // Broadcast logic (simulation / background task)
+                chrome.runtime.sendMessage({ 
+                    type: 'START_BROADCAST', 
+                    payload: { contacts, message, delay } 
+                }, (res) => {
+                    if (res && res.success) {
+                        showNotification('Broadcast Scheduled!');
+                    }
+                });
+            });
+            break;
         case 'tools':
             chrome.storage.local.get(['GEMINI_API_KEY', 'SUPABASE_URL', 'SUPABASE_KEY'], (data) => {
                 container.innerHTML = `
@@ -527,6 +599,8 @@ function attachChipListeners() {
 
 let lastMessagedId = '';
 let lastChatName = '';
+let autoReplyRules = [];
+let cloudTemplates = [];
 
 function setupMutationObserver() {
   const observer = new MutationObserver(() => {
@@ -544,6 +618,22 @@ function setupMutationObserver() {
 
     // Auto-Reply detection
     detectIncomingMessages();
+
+    // Broadcast auto-send detection
+    if (window.location.hash === '#wa-crm-broadcast') {
+        const sendBtn = document.querySelector('footer button span[data-icon="send"]') || 
+                       document.querySelector('footer button span[data-icon="label-send-light"]') ||
+                       document.querySelector('footer button[aria-label="Send"]');
+        if (sendBtn) {
+            const btn = sendBtn.tagName === 'BUTTON' ? sendBtn : sendBtn.closest('button');
+            if (btn && !btn.disabled) {
+                console.log('WA-CRM: Broadcast Auto-Send Triggered');
+                btn.click();
+                // Remove hash to avoid repeat sends
+                window.location.hash = '';
+            }
+        }
+    }
   });
 
   const app = document.querySelector('#app');
@@ -558,6 +648,24 @@ function updateIntelContent() {
     const activeTab = document.querySelector('.nav-tab.active')?.getAttribute('data-tab') || 'intel';
     renderTabContent(activeTab);
   }
+}
+
+async function loadTemplates() {
+    return new Promise((resolve) => {
+        chrome.runtime.sendMessage({ type: 'FETCH_TEMPLATES' }, (response) => {
+            if (response && response.success) {
+                cloudTemplates = response.data || [];
+                if (cloudTemplates.length === 0) {
+                    cloudTemplates = [
+                        { title: 'Welcome Greeting', body: 'Hi {{name}}, welcome to our platform! How can we help today?' },
+                        { title: 'Special Promo Q4', body: 'Hey {{name}}, don\'t miss our exclusive 20% discount!' },
+                        { title: 'Inactive Followup', body: 'Long time no see, {{name}}! We\'ve missed you.' }
+                    ];
+                }
+            }
+            resolve(cloudTemplates);
+        });
+    });
 }
 
 async function loadAutoReplyRules() {

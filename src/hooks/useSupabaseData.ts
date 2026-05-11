@@ -204,3 +204,41 @@ export function useAutomationRules() {
 
   return { rules, loading, deleteRule, toggleRule };
 }
+
+export type Template = {
+  id: string;
+  title: string;
+  body: string;
+  cat?: string;
+};
+
+export function useTemplates() {
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchTemplates() {
+      try {
+        const { data, error } = await supabase
+          .from('message_templates')
+          .select('*');
+
+        if (error) throw error;
+        setTemplates(data || []);
+      } catch (err) {
+        // Fallback mock data matching Templates.tsx
+        setTemplates([
+          { id: '1', title: 'Welcome Greeting', body: 'Hi {{name}}, welcome to our platform! How can we help today?', cat: 'Onboarding' },
+          { id: '2', title: 'Special Promo Q4', body: 'Hey {{name}}, don\'t miss our exclusive 20% discount!', cat: 'Promotional' },
+          { id: '3', title: 'Inactive Followup', body: 'Long time no see, {{name}}! We\'ve missed you.', cat: 'Re-engagement' },
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchTemplates();
+  }, []);
+
+  return { templates, loading };
+}

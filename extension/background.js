@@ -166,4 +166,51 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     return true;
   }
+
+  if (message.type === 'FETCH_TEMPLATES') {
+    chrome.storage.local.get(['SUPABASE_URL', 'SUPABASE_KEY'], async (config) => {
+        if (config.SUPABASE_URL && config.SUPABASE_KEY) {
+            try {
+                const response = await fetch(`${config.SUPABASE_URL}/rest/v1/message_templates?select=*`, {
+                    headers: {
+                        'apikey': config.SUPABASE_KEY,
+                        'Authorization': `Bearer ${config.SUPABASE_KEY}`
+                    }
+                });
+                const remoteTemplates = await response.json();
+                sendResponse({ success: true, data: remoteTemplates });
+            } catch (e) {
+                sendResponse({ success: false, error: e.message });
+            }
+        } else {
+            sendResponse({ success: true, data: [] });
+        }
+    });
+    return true;
+  }
+
+  if (message.type === 'START_BROADCAST') {
+    const { contacts, message: broadcastText, delay } = message.payload;
+    
+    (async () => {
+        chrome.tabs.query({ url: 'https://web.whatsapp.com/*' }, async (tabs) => {
+            if (tabs.length === 0) return;
+            const targetTab = tabs[0];
+
+            for (let i = 0; i < contacts.length; i++) {
+                const phone = contacts[i].replace(/\D/g, '');
+                // We pass a special flag in the URL or storage to tell the content script to auto-send
+                const url = `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(broadcastText)}#wa-crm-broadcast`;
+                
+                chrome.tabs.update(targetTab.id, { url });
+                
+                // Wait for the delay or until content script signals it sent the message
+                await new Promise(resolve => setTimeout(resolve, Math.max(delay, 10) * 1000));
+            }
+        });
+    })();
+
+    sendResponse({ success: true });
+    return true;
+  }
 });
