@@ -10,8 +10,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'SAVE_AUTO_REPLY_RULE') {
-    chrome.storage.local.get('auto_reply_rules', (data) => {
-      const rules = data.auto_reply_rules || [];
+    chrome.storage.local.get(['auto_reply_rules', 'SUPABASE_URL', 'SUPABASE_KEY'], (config) => {
+      const rules = config.auto_reply_rules || [];
       const index = rules.findIndex(r => r.keyword === message.payload.keyword);
       
       if (index !== -1) {
@@ -20,17 +20,75 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         rules.push(message.payload);
       }
       
-      chrome.storage.local.set({ 'auto_reply_rules': rules }, () => {
+      chrome.storage.local.set({ 'auto_reply_rules': rules }, async () => {
+        // Optional: Sync to Supabase if configured
+        if (config.SUPABASE_URL && config.SUPABASE_KEY) {
+          try {
+            await fetch(`${config.SUPABASE_URL}/rest/v1/automation_rules`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': config.SUPABASE_KEY,
+                'Authorization': `Bearer ${config.SUPABASE_KEY}`,
+                'Prefer': 'resolution=merge-duplicates'
+              },
+              body: JSON.stringify({
+                keyword: message.payload.keyword,
+                responses: message.payload.responses,
+                is_active: true,
+                workspace_id: '1'
+              })
+            });
+          } catch (e) { console.error('Cloud Sync Failed', e); }
+        }
         sendResponse({ success: true });
       });
     });
-    return true; // Keep channel open for async response
+    return true;
+  }
+
+  if (message.type === 'FETCH_AUTO_REPLY_RULES') {
+    chrome.storage.local.get(['SUPABASE_URL', 'SUPABASE_KEY'], async (config) => {
+      if (config.SUPABASE_URL && config.SUPABASE_KEY) {
+        try {
+          const response = await fetch(`${config.SUPABASE_URL}/rest/v1/automation_rules?select=*`, {
+            headers: {
+              'apikey': config.SUPABASE_KEY,
+              'Authorization': `Bearer ${config.SUPABASE_KEY}`
+            }
+          });
+          const remoteRules = await response.json();
+          chrome.storage.local.set({ 'auto_reply_rules': remoteRules });
+          sendResponse({ success: true, data: remoteRules });
+        } catch (e) {
+          sendResponse({ success: false, error: e.message });
+        }
+      } else {
+        chrome.storage.local.get('auto_reply_rules', (data) => {
+          sendResponse({ success: true, data: data.auto_reply_rules || [] });
+        });
+      }
+    });
+    return true;
   }
 
   if (message.type === 'DELETE_AUTO_REPLY_RULE') {
-    chrome.storage.local.get('auto_reply_rules', (data) => {
-      const rules = (data.auto_reply_rules || []).filter(r => r.keyword !== message.payload.keyword);
-      chrome.storage.local.set({ 'auto_reply_rules': rules }, () => {
+    chrome.storage.local.get(['auto_reply_rules', 'SUPABASE_URL', 'SUPABASE_KEY'], (config) => {
+      const keyword = message.payload.keyword;
+      const rules = (config.auto_reply_rules || []).filter(r => r.keyword !== keyword);
+      
+      chrome.storage.local.set({ 'auto_reply_rules': rules }, async () => {
+        if (config.SUPABASE_URL && config.SUPABASE_KEY) {
+          try {
+            await fetch(`${config.SUPABASE_URL}/rest/v1/automation_rules?keyword=eq.${keyword}`, {
+              method: 'DELETE',
+              headers: {
+                'apikey': config.SUPABASE_KEY,
+                'Authorization': `Bearer ${config.SUPABASE_KEY}`
+              }
+            });
+          } catch (e) { console.error('Cloud Delete Failed', e); }
+        }
         sendResponse({ success: true });
       });
     });

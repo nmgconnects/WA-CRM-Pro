@@ -107,9 +107,15 @@ function createIntelSidebar() {
 
   document.querySelectorAll('.nav-tab').forEach(tab => {
     tab.addEventListener('click', (e) => {
+        const nextTab = e.target.getAttribute('data-tab') || 'intel';
         document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
         e.target.classList.add('active');
-        renderTabContent(e.target.getAttribute('data-tab') || 'intel');
+        
+        if (nextTab === 'auto') {
+            loadAutoReplyRules().then(() => renderTabContent('auto'));
+        } else {
+            renderTabContent(nextTab);
+        }
     });
   });
 
@@ -223,89 +229,101 @@ function renderTabContent(tab) {
             });
             break;
         case 'auto':
-            const rulesHtml = autoReplyRules.map((rule, idx) => `
-                <div class="mini-card" style="position: relative; border-left: 3px solid #10b981;">
-                    <div style="display: flex; justify-content: space-between; align-items: start;">
-                        <span style="font-size: 10px; font-weight: 900; color: #0e8edc;">KEYWORD: ${rule.keyword.toUpperCase()}</span>
-                        <button class="delete-rule" data-idx="${idx}" style="background: none; border: none; color: #f43f5e; cursor: pointer; font-size: 10px; font-weight: 800;">DELETE</button>
+            chrome.storage.local.get(['SUPABASE_URL', 'SUPABASE_KEY'], (config) => {
+                const hasConfig = config.SUPABASE_URL && config.SUPABASE_KEY;
+                const rulesHtml = autoReplyRules.map((rule, idx) => `
+                    <div class="mini-card" style="position: relative; border-left: 3px solid #10b981;">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <span style="font-size: 10px; font-weight: 900; color: #0e8edc;">KEYWORD: ${rule.keyword.toUpperCase()}</span>
+                            <button class="delete-rule" data-idx="${idx}" style="background: none; border: none; color: #f43f5e; cursor: pointer; font-size: 10px; font-weight: 800;">DELETE</button>
+                        </div>
+                        <p style="font-size: 9px; color: #64748b; margin: 4px 0;">${rule.responses.length} sequence messages</p>
                     </div>
-                    <p style="font-size: 9px; color: #64748b; margin: 4px 0;">${rule.responses.length} sequence messages</p>
-                </div>
-            `).join('') || '<p style="font-size: 10px; color: #94a3b8; text-align: center;">No active rules</p>';
+                `).join('') || '<p style="font-size: 10px; color: #94a3b8; text-align: center;">No active rules</p>';
 
-            container.innerHTML = `
-                <div class="intel-card">
-                    <span style="font-size: 9px; font-weight: 900; color: #94a3b8; text-transform: uppercase; display: block; margin-bottom: 16px;">Create Smart Auto-Reply</span>
-                    <input type="text" id="auto-reply-keyword" class="tool-input" placeholder="Trigger Keyword (e.g. Price)..." />
-                    
-                    <div id="responses-container">
-                        <div class="response-row" style="margin-bottom: 12px; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px;">
-                            <span style="font-size: 8px; color: #94a3b8; font-weight: 800; text-transform: uppercase;">Response 1</span>
-                            <textarea class="tool-input response-text" placeholder="Reply text..." style="margin-top: 4px;"></textarea>
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <span style="font-size: 9px; color: #64748b;">Delay:</span>
-                                <input type="number" class="tool-input response-delay" placeholder="Sec" style="width: 60px; margin-bottom: 0;" value="2" />
+                container.innerHTML = `
+                    <div class="intel-card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                            <span style="font-size: 9px; font-weight: 900; color: #94a3b8; text-transform: uppercase;">Create Smart Auto-Reply</span>
+                            ${hasConfig ? `<button id="btn-sync-rules" style="background: #f1f5f9; border: none; padding: 4px 8px; border-radius: 6px; font-size: 8px; font-weight: 900; color: #64748b; cursor: pointer;">🔄 CLOUD SYNC</button>` : ''}
+                        </div>
+                        <input type="text" id="auto-reply-keyword" class="tool-input" placeholder="Trigger Keyword (e.g. Price)..." />
+                        
+                        <div id="responses-container">
+                            <div class="response-row" style="margin-bottom: 12px; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px;">
+                                <span style="font-size: 8px; color: #94a3b8; font-weight: 800; text-transform: uppercase;">Response 1</span>
+                                <textarea class="tool-input response-text" placeholder="Reply text..." style="margin-top: 4px;"></textarea>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-size: 9px; color: #64748b;">Delay:</span>
+                                    <input type="number" class="tool-input response-delay" placeholder="Sec" style="width: 60px; margin-bottom: 0;" value="2" />
+                                </div>
                             </div>
                         </div>
+                        
+                        <button id="btn-add-response" style="background: none; border: 1px dashed #cbd5e1; color: #64748b; font-size: 10px; font-weight: 700; width: 100%; padding: 8px; border-radius: 8px; cursor: pointer; margin-bottom: 16px;">+ Add Sequence Message</button>
+                        <button id="btn-save-auto" class="action-btn-sm" style="background: #10b981;">Save Smart Rule</button>
                     </div>
-                    
-                    <button id="btn-add-response" style="background: none; border: 1px dashed #cbd5e1; color: #64748b; font-size: 10px; font-weight: 700; width: 100%; padding: 8px; border-radius: 8px; cursor: pointer; margin-bottom: 16px;">+ Add Sequence Message</button>
-                    <button id="btn-save-auto" class="action-btn-sm" style="background: #10b981;">Save Smart Rule</button>
-                </div>
 
-                <div class="intel-card">
-                    <span style="font-size: 9px; font-weight: 900; color: #94a3b8; text-transform: uppercase; display: block; margin-bottom: 16px;">Active Automations</span>
-                    <div id="saved-rules-list">
-                        ${rulesHtml}
-                    </div>
-                </div>
-            `;
-
-            document.getElementById('btn-add-response')?.addEventListener('click', () => {
-                const respContainer = document.getElementById('responses-container');
-                if (!respContainer) return;
-                const count = respContainer.querySelectorAll('.response-row').length + 1;
-                const row = document.createElement('div');
-                row.className = 'response-row';
-                row.style.cssText = 'margin-bottom: 12px; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px;';
-                row.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-size: 8px; color: #94a3b8; font-weight: 800; text-transform: uppercase;">Response ${count}</span>
-                        <button class="remove-row" style="background: none; border: none; color: #f43f5e; cursor: pointer; font-size: 14px;">×</button>
-                    </div>
-                    <textarea class="tool-input response-text" placeholder="Reply text..." style="margin-top: 4px;"></textarea>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 9px; color: #64748b;">Delay:</span>
-                        <input type="number" class="tool-input response-delay" placeholder="Sec" style="width: 60px; margin-bottom: 0;" value="2" />
+                    <div class="intel-card">
+                        <span style="font-size: 9px; font-weight: 900; color: #94a3b8; text-transform: uppercase; display: block; margin-bottom: 16px;">Active Automations</span>
+                        <div id="saved-rules-list">
+                            ${rulesHtml}
+                        </div>
                     </div>
                 `;
-                row.querySelector('.remove-row')?.addEventListener('click', () => row.remove());
-                respContainer.appendChild(row);
-            });
 
-            document.getElementById('btn-save-auto')?.addEventListener('click', () => {
-                const keyword = document.getElementById('auto-reply-keyword').value;
-                const rows = document.querySelectorAll('.response-row');
-                const responses = Array.from(rows).map(row => ({
-                        text: row.querySelector('.response-text').value,
-                        delay: parseInt(row.querySelector('.response-delay').value) || 0
-                })).filter(r => r.text.trim() !== '');
-
-                if (!keyword || responses.length === 0) return showNotification('Incomplete Rule');
-
-                chrome.runtime.sendMessage({ type: 'SAVE_AUTO_REPLY_RULE', payload: { keyword, responses } }, () => {
-                    showNotification('Rule Saved!');
-                    loadAutoReplyRules().then(() => renderTabContent('auto'));
+                document.getElementById('btn-sync-rules')?.addEventListener('click', async () => {
+                    showNotification('Syncing with Cloud...');
+                    await loadAutoReplyRules();
+                    renderTabContent('auto');
                 });
-            });
 
-            document.querySelectorAll('.delete-rule').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const idx = parseInt(btn.getAttribute('data-idx') || '0');
-                    const keyword = autoReplyRules[idx].keyword;
-                    chrome.runtime.sendMessage({ type: 'DELETE_AUTO_REPLY_RULE', payload: { keyword } }, () => {
-                        showNotification('Rule Deleted');
+                document.getElementById('btn-add-response')?.addEventListener('click', () => {
+                    const respContainer = document.getElementById('responses-container');
+                    if (!respContainer) return;
+                    const count = respContainer.querySelectorAll('.response-row').length + 1;
+                    const row = document.createElement('div');
+                    row.className = 'response-row';
+                    row.style.cssText = 'margin-bottom: 12px; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px;';
+                    row.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-size: 8px; color: #94a3b8; font-weight: 800; text-transform: uppercase;">Response ${count}</span>
+                            <button class="remove-row" style="background: none; border: none; color: #f43f5e; cursor: pointer; font-size: 14px;">×</button>
+                        </div>
+                        <textarea class="tool-input response-text" placeholder="Reply text..." style="margin-top: 4px;"></textarea>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 9px; color: #64748b;">Delay:</span>
+                            <input type="number" class="tool-input response-delay" placeholder="Sec" style="width: 60px; margin-bottom: 0;" value="2" />
+                        </div>
+                    `;
+                    row.querySelector('.remove-row')?.addEventListener('click', () => row.remove());
+                    respContainer.appendChild(row);
+                });
+
+                document.getElementById('btn-save-auto')?.addEventListener('click', () => {
+                    const keyword = document.getElementById('auto-reply-keyword').value;
+                    const rows = document.querySelectorAll('.response-row');
+                    const responses = Array.from(rows).map(row => ({
+                            text: row.querySelector('.response-text').value,
+                            delay: parseInt(row.querySelector('.response-delay').value) || 0
+                    })).filter(r => r.text.trim() !== '');
+
+                    if (!keyword || responses.length === 0) return showNotification('Incomplete Rule');
+
+                    chrome.runtime.sendMessage({ type: 'SAVE_AUTO_REPLY_RULE', payload: { keyword, responses } }, () => {
+                        showNotification('Rule Saved & Synced!');
                         loadAutoReplyRules().then(() => renderTabContent('auto'));
+                    });
+                });
+
+                document.querySelectorAll('.delete-rule').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const idx = parseInt(btn.getAttribute('data-idx') || '0');
+                        const keyword = autoReplyRules[idx].keyword;
+                        chrome.runtime.sendMessage({ type: 'DELETE_AUTO_REPLY_RULE', payload: { keyword } }, () => {
+                            showNotification('Rule Deleted');
+                            loadAutoReplyRules().then(() => renderTabContent('auto'));
+                        });
                     });
                 });
             });
@@ -543,8 +561,15 @@ function updateIntelContent() {
 }
 
 async function loadAutoReplyRules() {
-    const data = await chrome.storage.local.get('auto_reply_rules');
-    autoReplyRules = data.auto_reply_rules || [];
+    return new Promise((resolve) => {
+        chrome.runtime.sendMessage({ type: 'FETCH_AUTO_REPLY_RULES' }, (response) => {
+            if (response && response.success) {
+                autoReplyRules = response.data || [];
+                console.log('WA-CRM: Loaded Auto-Reply Rules:', autoReplyRules.length);
+            }
+            resolve(autoReplyRules);
+        });
+    });
 }
 
 function detectIncomingMessages() {

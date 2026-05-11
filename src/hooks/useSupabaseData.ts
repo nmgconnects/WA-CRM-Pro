@@ -31,6 +31,18 @@ export function useContacts() {
     }
 
     fetchContacts();
+
+    // Real-time subscription
+    const channel = supabase
+      .channel('public:contacts')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'contacts' }, (payload) => {
+        setContacts(current => [payload.new as Contact, ...current]);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   async function addContact(contact: Partial<Contact>) {
@@ -115,7 +127,18 @@ export function useAutomationAnalytics() {
     }
 
     fetchTriggers();
-    // In production, you would use supabase.channel().on(...) for real-time
+    
+    // Real-time subscription
+    const channel = supabase
+      .channel('public:automation_logs')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'automation_logs' }, (payload) => {
+        setTriggers(current => [payload.new as AutomationTrigger, ...current.slice(0, 9)]);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return { triggers, loading };

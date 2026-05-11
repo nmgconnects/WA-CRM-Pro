@@ -1,29 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { Users, Zap, Clock, Kanban, MoreVertical } from 'lucide-react';
+import React from 'react';
+import { Users, Zap, Clock, Kanban, MoreVertical, MessageSquare } from 'lucide-react';
 import { motion } from 'motion/react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, CartesianGrid, Tooltip } from 'recharts';
 import { cn } from '../lib/utils';
-import { useActivity } from '../context/ActivityContext';
+import { useContacts, useAutomationAnalytics } from '../hooks/useSupabaseData';
 
 export const Overview: React.FC = () => {
-  const { addActivity } = useActivity();
-  const [leadCount, setLeadCount] = useState(2481);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (Math.random() > 0.8) {
-        setLeadCount(prev => prev + 1);
-        addActivity({ user: 'System', action: 'New lead captured from WhatsApp', icon: 'Zap' });
-      }
-    }, 15000);
-    return () => clearInterval(interval);
-  }, [addActivity]);
-
+  const { contacts } = useContacts();
+  const { triggers } = useAutomationAnalytics();
+  
   const stats = [
-    { label: 'Total Leads', value: leadCount.toLocaleString(), change: '+12%', icon: Users, color: 'text-brand-600', bg: 'bg-brand-50' },
+    { label: 'Total Leads', value: contacts.length.toLocaleString(), change: '+12%', icon: Users, color: 'text-brand-600', bg: 'bg-brand-50' },
     { label: 'Conversion', value: '18.4%', change: '+4%', icon: Zap, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { label: 'Response Time', value: '4m 12s', change: '-30s', icon: Clock, color: 'text-blue-600', bg: 'bg-blue-50' },
-    { label: 'Pipeline Value', value: '$84,200', change: '+24%', icon: Kanban, color: 'text-amber-600', bg: 'bg-amber-50' },
+    { label: 'Cloud Syncs', value: triggers.length.toString(), change: 'LIVE', icon: Clock, color: 'text-blue-600', bg: 'bg-blue-50' },
+    { label: 'Pipeline Value', value: `$${(contacts.filter(c => c.status === 'customer').length * 2500).toLocaleString()}`, change: '+24%', icon: Kanban, color: 'text-amber-600', bg: 'bg-amber-50' },
   ];
 
   return (
@@ -109,26 +99,29 @@ export const Overview: React.FC = () => {
         </div>
 
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 flex flex-col">
-           <h3 className="text-sm font-bold text-slate-800 mb-6">Upcoming Tasks</h3>
+           <h3 className="text-sm font-bold text-slate-800 mb-6">Recent Automation Events</h3>
            <div className="space-y-4 flex-1">
-              {[
-                { title: 'Follow up with Alex', time: '10:00 AM', type: 'high' },
-                { title: 'Send Q4 Deck', time: '11:30 AM', type: 'med' },
-                { title: 'Review campaign stats', time: '2:00 PM', type: 'low' },
-              ].map((task, i) => (
+              {triggers.length > 0 ? triggers.map((trigger, i) => (
                 <div key={i} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between">
                    <div className="flex gap-3 items-center">
-                     <div className={cn("w-1.5 h-1.5 rounded-full", task.type === 'high' ? "bg-brand-600" : "bg-slate-300")} />
+                     <div className="p-2 bg-emerald-50 rounded-lg">
+                       <Zap className="w-3.5 h-3.5 text-emerald-500 fill-emerald-200" />
+                     </div>
                      <div>
-                       <p className="text-xs font-bold text-slate-800">{task.title}</p>
-                       <p className="text-[9px] font-bold text-slate-400 font-mono mt-1 uppercase">{task.time}</p>
+                       <p className="text-xs font-bold text-slate-800">Trigger: {trigger.keyword}</p>
+                       <p className="text-[9px] font-bold text-slate-400 font-mono mt-1 uppercase">{trigger.contact_name}</p>
                      </div>
                    </div>
-                   <button className="text-slate-300 hover:text-slate-600"><MoreVertical className="w-4 h-4" /></button>
+                   <span className="text-[8px] font-black text-slate-300 uppercase">Live</span>
                 </div>
-              ))}
+              )) : (
+                <div className="flex flex-col items-center justify-center h-full opacity-30 italic text-xs">
+                  <Clock className="w-8 h-8 mb-2" />
+                  No recent triggers
+                </div>
+              )}
            </div>
-           <button className="w-full mt-6 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-black uppercase text-slate-400 hover:bg-slate-100 italic transition-all">View All Reminders</button>
+           <button className="w-full mt-6 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-black uppercase text-slate-400 hover:bg-slate-100 italic transition-all">View All Activity</button>
         </div>
       </div>
     </div>
