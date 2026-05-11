@@ -13,6 +13,9 @@ const UI_CONFIG = {
 // We will rely on background scripts for heavy AI lifting if needed, 
 // or use a simple fetch if possible. For now, we simulate the structure.
 let autoReplyRules = [];
+let lastMessagedId = '';
+let lastChatName = '';
+let cloudTemplates = [];
 
 function init() {
   const checkInterval = setInterval(() => {
@@ -81,7 +84,8 @@ function createIntelSidebar() {
     </div>
     
     <div style="display: flex; border-bottom: 1px solid #f1f5f9; background: #fff; overflow-x: auto; scrollbar-width: none;">
-       <button class="nav-tab active" data-tab="intel" style="min-width: 80px;">🧠 Intel</button>
+       <button class="nav-tab active" data-tab="overview" style="min-width: 90px;">📊 Overview</button>
+       <button class="nav-tab" data-tab="intel" style="min-width: 80px;">🧠 Intel</button>
        <button class="nav-tab" data-tab="sales" style="min-width: 80px;">📈 Sales</button>
        <button class="nav-tab" data-tab="auto" style="min-width: 80px;">🤖 Auto</button>
        <button class="nav-tab" data-tab="templates" style="min-width: 100px;">📋 Templates</button>
@@ -123,7 +127,7 @@ function createIntelSidebar() {
     });
   });
 
-  renderTabContent('intel');
+  renderTabContent('overview');
 }
 
 function renderTabContent(tab) {
@@ -134,6 +138,46 @@ function renderTabContent(tab) {
     const contactName = (header?.querySelector('span[title]'))?.title || 'Selected Contact';
 
     switch(tab) {
+        case 'overview':
+            chrome.runtime.sendMessage({ type: 'FETCH_CONTACTS' }, (response) => {
+                const contacts = response?.data || [];
+                const conversion = "18.4%";
+                const pipelineValue = (contacts.filter(c => c.status === 'customer').length * 2500).toLocaleString();
+                
+                container.innerHTML = `
+                    <div class="intel-card" style="background: linear-gradient(135deg, #6366f1, #a855f7); color: white;">
+                        <span style="font-size: 8px; font-weight: 900; opacity: 0.8; text-transform: uppercase;">Global Performance</span>
+                        <h2 style="font-size: 24px; font-weight: 900; margin: 8px 0;">$${pipelineValue}</h2>
+                        <p style="font-size: 10px; opacity: 0.9;">Total Pipeline Value</p>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+                        <div class="mini-card" style="margin-bottom: 0;">
+                            <span style="font-size: 8px; font-weight: 900; color: #94a3b8; text-transform: uppercase;">Leads</span>
+                            <div style="font-size: 16px; font-weight: 900; color: #1e293b;">${contacts.length}</div>
+                        </div>
+                        <div class="mini-card" style="margin-bottom: 0;">
+                            <span style="font-size: 8px; font-weight: 900; color: #94a3b8; text-transform: uppercase;">Conv.</span>
+                            <div style="font-size: 16px; font-weight: 900; color: #10b981;">${conversion}</div>
+                        </div>
+                    </div>
+
+                    <div class="intel-card">
+                        <span style="font-size: 9px; font-weight: 900; color: #94a3b8; text-transform: uppercase; display: block; margin-bottom: 12px;">Recent Activities</span>
+                        <div id="recent-activity-list">
+                            <div style="display: flex; gap: 12px; margin-bottom: 12px; align-items: center;">
+                                <div style="width: 8px; height: 8px; border-radius: 50%; background: #6366f1;"></div>
+                                <p style="font-size: 10px; color: #1e293b; margin: 0;">New lead added from WhatsApp</p>
+                            </div>
+                            <div style="display: flex; gap: 12px; margin-bottom: 12px; align-items: center;">
+                                <div style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></div>
+                                <p style="font-size: 10px; color: #1e293b; margin: 0;">Broadcast to 45 contacts sent</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            break;
         case 'intel':
             chrome.storage.local.get(['SUPABASE_URL', 'SUPABASE_KEY'], (config) => {
                 const hasConfig = config.SUPABASE_URL && config.SUPABASE_KEY;
@@ -596,11 +640,6 @@ function attachChipListeners() {
         });
     });
 }
-
-let lastMessagedId = '';
-let lastChatName = '';
-let autoReplyRules = [];
-let cloudTemplates = [];
 
 function setupMutationObserver() {
   const observer = new MutationObserver(() => {

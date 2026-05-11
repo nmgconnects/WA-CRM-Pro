@@ -167,6 +167,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'FETCH_CONTACTS') {
+    chrome.storage.local.get(['SUPABASE_URL', 'SUPABASE_KEY'], async (config) => {
+        if (config.SUPABASE_URL && config.SUPABASE_KEY) {
+            try {
+                const response = await fetch(`${config.SUPABASE_URL}/rest/v1/contacts?select=*`, {
+                    headers: {
+                        'apikey': config.SUPABASE_KEY,
+                        'Authorization': `Bearer ${config.SUPABASE_KEY}`
+                    }
+                });
+                const remoteContacts = await response.json();
+                sendResponse({ success: true, data: remoteContacts });
+            } catch (e) {
+                sendResponse({ success: false, error: e.message });
+            }
+        } else {
+            sendResponse({ success: true, data: [] });
+        }
+    });
+    return true;
+  }
+
   if (message.type === 'FETCH_TEMPLATES') {
     chrome.storage.local.get(['SUPABASE_URL', 'SUPABASE_KEY'], async (config) => {
         if (config.SUPABASE_URL && config.SUPABASE_KEY) {
