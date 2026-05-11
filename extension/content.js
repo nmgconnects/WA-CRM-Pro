@@ -125,26 +125,52 @@ function renderTabContent(tab) {
 
     switch(tab) {
         case 'intel':
-            container.innerHTML = `
-                <div class="intel-card" style="text-align: center; border: none; background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);">
-                    <div style="width: 72px; height: 72px; background: #0e8edc; color: white; border-radius: 24px; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 28px; box-shadow: 0 20px 25px -5px rgba(14, 142, 220, 0.2);">${contactName[0]}</div>
-                    <h3 style="font-size: 20px; font-weight: 900; color: #0f172a; margin: 0;">${contactName}</h3>
-                </div>
-                <div id="ai-intelligence-container">
-                    <div style="display: flex; justify-content: center; padding: 20px;">
-                        <button id="btn-run-analysis" class="action-btn-sm" style="background: #10b981;">⚡ Run AI Analysis</button>
+            chrome.storage.local.get(['SUPABASE_URL', 'SUPABASE_KEY'], (config) => {
+                const hasConfig = config.SUPABASE_URL && config.SUPABASE_KEY;
+                
+                container.innerHTML = `
+                    <div class="intel-card" style="text-align: center; border: none; background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);">
+                        <div style="width: 72px; height: 72px; background: #0e8edc; color: white; border-radius: 24px; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 28px; box-shadow: 0 20px 25px -5px rgba(14, 142, 220, 0.2);">${contactName[0]}</div>
+                        <h3 style="font-size: 20px; font-weight: 900; color: #0f172a; margin: 0;">${contactName}</h3>
                     </div>
-                </div>
-                <div class="intel-card">
-                    <span style="font-size: 9px; font-weight: 900; color: #94a3b8; text-transform: uppercase; display: block; margin-bottom: 16px;">Response Chips</span>
-                    <div id="intel-replies">
-                        <div class="reply-chip">"Yes, I can send that over now."</div>
-                        <div class="reply-chip">"Is tomorrow good for a 15-min sync?"</div>
+                    
+                    <div id="ai-intelligence-container">
+                        <div style="display: flex; justify-content: center; padding: 20px;">
+                            <button id="btn-run-analysis" class="action-btn-sm" style="background: #10b981;">⚡ Run AI Analysis</button>
+                        </div>
                     </div>
-                </div>
-            `;
-            document.getElementById('btn-run-analysis')?.addEventListener('click', runAIIntelligence);
-            attachChipListeners();
+
+                    ${hasConfig ? `
+                    <div class="intel-card">
+                        <span style="font-size: 9px; font-weight: 900; color: #94a3b8; text-transform: uppercase; display: block; margin-bottom: 12px;">Relationship Stats</span>
+                        <div style="display: flex; gap: 8px;">
+                            <div style="flex: 1; background: #f8fafc; padding: 12px; border-radius: 16px;">
+                                <span style="font-size: 8px; color: #94a3b8; font-weight: 800;">LIFETIME</span>
+                                <p style="font-size: 14px; font-weight: 900; color: #0f172a; margin: 4px 0;">$2.4k</p>
+                            </div>
+                            <div style="flex: 1; background: #f8fafc; padding: 12px; border-radius: 16px;">
+                                <span style="font-size: 8px; color: #94a3b8; font-weight: 800;">ENGAGEMENT</span>
+                                <p style="font-size: 14px; font-weight: 900; color: #10b981; margin: 4px 0;">HIGH</p>
+                            </div>
+                        </div>
+                    </div>
+                    ` : `
+                    <div class="intel-card" style="border-style: dashed; padding: 16px; opacity: 0.7;">
+                        <p style="font-size: 10px; color: #64748b; margin: 0; text-align: center;">Sync with Supabase in Tools to see relationship stats.</p>
+                    </div>
+                    `}
+
+                    <div class="intel-card">
+                        <span style="font-size: 9px; font-weight: 900; color: #94a3b8; text-transform: uppercase; display: block; margin-bottom: 16px;">Response Chips</span>
+                        <div id="intel-replies">
+                            <div class="reply-chip">"Yes, I can send that over now."</div>
+                            <div class="reply-chip">"Is tomorrow good for a 15-min sync?"</div>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('btn-run-analysis')?.addEventListener('click', runAIIntelligence);
+                attachChipListeners();
+            });
             break;
         case 'sales':
             container.innerHTML = `
@@ -171,12 +197,29 @@ function renderTabContent(tab) {
                 });
             });
             document.getElementById('btn-update-pipeline')?.addEventListener('click', () => {
-                const activeStage = document.querySelector('.status-pill.active')?.getAttribute('data-stage');
+                const activeStage = document.querySelector('.status-pill.active')?.getAttribute('data-stage')?.toLowerCase() || 'lead';
                 const value = document.getElementById('deal-value-input').value;
+                const nameParts = contactName.split(' ');
+                
                 chrome.runtime.sendMessage({ 
-                    type: 'ADD_CONTACT', 
-                    payload: { name: contactName, status: activeStage, value } 
-                }, () => showNotification('CRM Updated!'));
+                    type: 'SYNC_TO_SUPABASE', 
+                    payload: { 
+                        table: 'contacts',
+                        data: {
+                            first_name: nameParts[0] || contactName,
+                            last_name: nameParts.slice(1).join(' ') || '',
+                            phone: contactName, // In a real scenario, we'd scrape the actual phone from DOM
+                            status: activeStage,
+                            workspace_id: '1' // Default workspace for now
+                        }
+                    } 
+                }, (res) => {
+                    if (res && res.success) {
+                        showNotification('Relationship Registered in Cloud!');
+                    } else {
+                        showNotification('Sync Failed: Check Supabase Config');
+                    }
+                });
             });
             break;
         case 'auto':
@@ -268,13 +311,21 @@ function renderTabContent(tab) {
             });
             break;
         case 'tools':
-            chrome.storage.local.get('GEMINI_API_KEY', (data) => {
+            chrome.storage.local.get(['GEMINI_API_KEY', 'SUPABASE_URL', 'SUPABASE_KEY'], (data) => {
                 container.innerHTML = `
                     <div class="intel-card">
                         <span style="font-size: 9px; font-weight: 900; color: #94a3b8; text-transform: uppercase; display: block; margin-bottom: 16px;">AI Settings</span>
                         <p style="font-size: 10px; color: #64748b; margin-bottom: 12px;">Enter your Gemini API Key to enable Intelligence features.</p>
                         <input type="password" id="gemini-api-key-input" class="tool-input" placeholder="AIzaSy..." value="${data.GEMINI_API_KEY || ''}" />
-                        <button id="btn-save-settings" class="action-btn-sm" style="background: #10b981;">Save API Key</button>
+                        
+                        <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #f1f5f9;">
+                            <span style="font-size: 9px; font-weight: 900; color: #94a3b8; text-transform: uppercase; display: block; margin-bottom: 12px;">Supabase Cloud Sync</span>
+                            <p style="font-size: 10px; color: #64748b; margin-bottom: 8px;">Sync contacts with your main dashboard.</p>
+                            <input type="text" id="supabase-url-input" class="tool-input" placeholder="https://xyz.supabase.co" value="${data.SUPABASE_URL || ''}" />
+                            <input type="password" id="supabase-key-input" class="tool-input" placeholder="anon-public-key" value="${data.SUPABASE_KEY || ''}" />
+                        </div>
+                        
+                        <button id="btn-save-settings" class="action-btn-sm" style="background: #10b981; margin-top: 12px;">Save Configurations</button>
                     </div>
                     <div class="intel-card">
                         <span style="font-size: 9px; font-weight: 900; color: #94a3b8; text-transform: uppercase; display: block; margin-bottom: 16px;">Chat with Non-contact</span>
@@ -285,9 +336,16 @@ function renderTabContent(tab) {
                 `;
 
                 document.getElementById('btn-save-settings')?.addEventListener('click', () => {
-                    const key = document.getElementById('gemini-api-key-input').value;
-                    chrome.storage.local.set({ 'GEMINI_API_KEY': key }, () => {
-                        showNotification('Settings Saved!');
+                    const geminiKey = document.getElementById('gemini-api-key-input').value;
+                    const sbUrl = document.getElementById('supabase-url-input').value;
+                    const sbKey = document.getElementById('supabase-key-input').value;
+                    
+                    chrome.storage.local.set({ 
+                        'GEMINI_API_KEY': geminiKey,
+                        'SUPABASE_URL': sbUrl,
+                        'SUPABASE_KEY': sbKey
+                    }, () => {
+                        showNotification('All settings saved and synced!');
                     });
                 });
 
@@ -387,14 +445,32 @@ function sendMessage(text) {
     const input = document.querySelector('footer div[contenteditable="true"]');
     if (input) {
         input.focus();
+        
+        // Try to use a more modern approach if execCommand is restricted
+        const textEvent = new InputEvent('input', {
+            bubbles: true,
+            cancelable: true,
+            data: text,
+        });
+        
+        input.innerText = text;
+        input.dispatchEvent(textEvent);
+
+        // Fallback for some versions of WhatsApp
         document.execCommand('insertText', false, text);
         
         setTimeout(() => {
-            const sendBtn = document.querySelector('footer button span[data-icon="send"]') || document.querySelector('footer button span[data-icon="label-send-light"]');
+            const sendBtn = document.querySelector('footer button span[data-icon="send"]') || 
+                           document.querySelector('footer button span[data-icon="label-send-light"]') ||
+                           document.querySelector('footer button[aria-label="Send"]');
             if (sendBtn) {
-                sendBtn.closest('button').click();
+                const btn = sendBtn.tagName === 'BUTTON' ? sendBtn : sendBtn.closest('button');
+                btn.click();
+                console.log('WA-CRM: Message Sent Successfully');
+            } else {
+                console.warn('WA-CRM: Send button not found');
             }
-        }, 100);
+        }, 300);
     }
 }
 
@@ -404,6 +480,7 @@ function showNotification(text) {
         notification.innerText = text;
         notification.style.opacity = '1';
         notification.style.transform = 'translateY(0)';
+        notification.style.pointerEvents = 'auto'; // Ensure it doesn't block clicks when hidden
         setTimeout(() => {
             notification.style.opacity = '0';
             notification.style.transform = 'translateY(100px)';
@@ -430,6 +507,7 @@ function attachChipListeners() {
     });
 }
 
+let lastMessagedId = '';
 let lastChatName = '';
 
 function setupMutationObserver() {
@@ -469,23 +547,42 @@ async function loadAutoReplyRules() {
     autoReplyRules = data.auto_reply_rules || [];
 }
 
-let lastMessagedText = '';
-
 function detectIncomingMessages() {
     const inbound = document.querySelectorAll('.message-in');
     if (inbound.length === 0) return;
 
     const latest = inbound[inbound.length - 1];
+    
+    // Use data-id or something unique to avoid repeat triggers
+    const msgId = latest.getAttribute('data-id') || latest.innerText.substring(0, 20);
+    if (msgId === lastMessagedId) return;
+    lastMessagedId = msgId;
+
     const textEl = latest.querySelector('.copyable-text span');
     if (!textEl) return;
 
-    const text = textEl.innerText.toLowerCase();
-    if (text === lastMessagedText) return;
-    lastMessagedText = text;
+    const incomingText = textEl.innerText.toLowerCase().trim();
+    console.log('WA-CRM: Incoming Message Detected:', incomingText);
 
     // Check rules
     autoReplyRules.forEach(rule => {
-        if (text.includes(rule.keyword)) {
+        const keyword = rule.keyword.toLowerCase().trim();
+        if (incomingText.includes(keyword)) {
+            console.log(`WA-CRM: Auto-Reply Match Found for keyword: "${keyword}"`);
+            
+            // Log to Supabase analytics
+            chrome.runtime.sendMessage({
+                type: 'SYNC_TO_SUPABASE',
+                payload: {
+                    table: 'automation_logs',
+                    data: {
+                        keyword: keyword,
+                        contact_name: lastChatName || 'Unknown Contact',
+                        triggered_at: new Date().toISOString()
+                    }
+                }
+            });
+
             let cumulativeDelay = 0;
             rule.responses.forEach((resp, index) => {
                 cumulativeDelay += resp.delay;

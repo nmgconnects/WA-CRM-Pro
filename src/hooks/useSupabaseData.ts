@@ -33,7 +33,24 @@ export function useContacts() {
     fetchContacts();
   }, []);
 
-  return { contacts, loading, error };
+  async function addContact(contact: Partial<Contact>) {
+    try {
+      const { data, error } = await supabase
+        .from('contacts')
+        .insert([contact])
+        .select()
+        .single();
+
+      if (error) throw error;
+      setContacts(prev => [data, ...prev]);
+      return { success: true, data };
+    } catch (err: any) {
+      console.error('Error adding contact:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  return { contacts, loading, error, addContact };
 }
 
 export type Deal = {

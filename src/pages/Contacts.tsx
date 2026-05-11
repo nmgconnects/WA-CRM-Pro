@@ -1,16 +1,32 @@
 import React, { useState } from 'react';
-import { MoreVertical, Zap, Phone, Mail, Calendar, MessageSquare, X } from 'lucide-react';
+import { MoreVertical, Zap, Phone, Mail, Calendar, MessageSquare, X, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useContacts } from '../hooks/useSupabaseData';
 import { type Contact } from '../lib/supabase';
 
 export const Contacts: React.FC = () => {
-  const { contacts, loading, error } = useContacts();
+  const { contacts, loading, error, addContact } = useContacts();
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [isAddingContact, setIsAddingContact] = useState(false);
+  const [newContact, setNewContact] = useState({ first_name: '', last_name: '', phone: '', email: '', status: 'lead' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   if (loading) return <div className="p-20 text-center font-black uppercase tracking-[0.3em] text-slate-200 text-xl animate-pulse">Initializing DNA Sync...</div>;
   if (error) return <div className="p-20 text-center text-red-500 font-bold">{error}</div>;
+
+  const handleAddSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    const result = await addContact(newContact);
+    setIsSubmitting(false);
+    if (result.success) {
+      setIsAddingContact(false);
+      setNewContact({ first_name: '', last_name: '', phone: '', email: '', status: 'lead' });
+    } else {
+      alert('Error adding contact: ' + result.error);
+    }
+  };
 
   const handleExportCSV = () => {
     const headers = ['First Name', 'Last Name', 'Phone', 'Email', 'Status', 'Created At'];
@@ -47,6 +63,13 @@ export const Contacts: React.FC = () => {
         <div className="flex gap-3">
           <button className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50">Filter</button>
           <button 
+            onClick={() => setIsAddingContact(true)}
+            className="px-4 py-2 bg-brand-600 text-white rounded-xl text-xs font-bold hover:bg-brand-700 flex items-center gap-2 shadow-lg shadow-brand-500/20"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add Contact
+          </button>
+          <button 
             onClick={handleExportCSV}
             className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50"
           >
@@ -54,6 +77,92 @@ export const Contacts: React.FC = () => {
           </button>
         </div>
       </div>
+
+      <AnimatePresence>
+        {isAddingContact && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="mb-10 p-8 bg-white border border-slate-200 rounded-3xl shadow-sm relative overflow-hidden"
+          >
+            <button 
+              onClick={() => setIsAddingContact(false)} 
+              className="absolute top-6 right-6 p-2 text-slate-300 hover:text-slate-600"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight mb-6">New Contact Entry</h3>
+            <form onSubmit={handleAddSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">First Name</label>
+                <input 
+                  required
+                  type="text" 
+                  value={newContact.first_name}
+                  onChange={e => setNewContact({...newContact, first_name: e.target.value})}
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+                  placeholder="e.g. John"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Last Name</label>
+                <input 
+                  required
+                  type="text" 
+                  value={newContact.last_name}
+                  onChange={e => setNewContact({...newContact, last_name: e.target.value})}
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+                  placeholder="e.g. Doe"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Phone Number</label>
+                <input 
+                  required
+                  type="tel" 
+                  value={newContact.phone}
+                  onChange={e => setNewContact({...newContact, phone: e.target.value})}
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+                  placeholder="e.g. +1 234 567 890"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Email Address</label>
+                <input 
+                  type="email" 
+                  value={newContact.email}
+                  onChange={e => setNewContact({...newContact, email: e.target.value})}
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+                  placeholder="e.g. john@example.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Initial Status</label>
+                <select 
+                  value={newContact.status}
+                  onChange={e => setNewContact({...newContact, status: e.target.value})}
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all appearance-none"
+                >
+                  <option value="lead">Lead</option>
+                  <option value="contact">Contact</option>
+                  <option value="customer">Customer</option>
+                  <option value="archived">Archived</option>
+                </select>
+              </div>
+              <div className="flex items-end pb-1 lg:col-span-1 border-t md:border-t-0 border-slate-100 pt-4 md:pt-0">
+                <button 
+                  disabled={isSubmitting}
+                  type="submit"
+                  className="w-full py-4 bg-brand-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-brand-500/20 hover:bg-brand-700 disabled:opacity-50 transition-all"
+                >
+                  {isSubmitting ? 'Syncing...' : 'Register Contact'}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
         <table className="w-full text-left">

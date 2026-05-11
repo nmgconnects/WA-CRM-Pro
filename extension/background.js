@@ -71,4 +71,41 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     return true;
   }
+
+  if (message.type === 'SYNC_TO_SUPABASE') {
+    chrome.storage.local.get(['SUPABASE_URL', 'SUPABASE_KEY'], async (config) => {
+        const { table, data } = message.payload;
+        const { SUPABASE_URL, SUPABASE_KEY } = config;
+
+        if (!SUPABASE_URL || !SUPABASE_KEY) {
+            sendResponse({ success: false, error: 'SUPABASE_CONFIG_MISSING' });
+            return;
+        }
+
+        try {
+            const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': `Bearer ${SUPABASE_KEY}`,
+                    'Prefer': 'return=representation'
+                },
+                body: JSON.stringify(data)
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.message || `Supabase Error: ${response.status}`);
+            }
+
+            const result = await response.json();
+            sendResponse({ success: true, data: result });
+        } catch (error) {
+            console.error('WA-CRM Sync Error:', error);
+            sendResponse({ success: false, error: error.message });
+        }
+    });
+    return true;
+  }
 });

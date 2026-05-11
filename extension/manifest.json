@@ -12,7 +12,9 @@
     "scripting"
   ],
   "host_permissions": [
-    "https://web.whatsapp.com/*"
+    "https://web.whatsapp.com/*",
+    "https://*.supabase.co/*",
+    "https://generativelanguage.googleapis.com/*"
   ],
   "action": {
     "default_popup": "popup.html"
